@@ -11,7 +11,8 @@ class EmailVerification extends Model
 
     protected $fillable = [
         'email_verifications',
-        'user_id'
+        'user_id',
+        'event_name'
     ];
 
     public function user() {

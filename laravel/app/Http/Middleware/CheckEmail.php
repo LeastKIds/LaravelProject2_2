@@ -17,7 +17,7 @@ class CheckEmail
     public function handle(Request $request, Closure $next)
     {
         if(auth() -> user() != null && auth() -> user() -> email_verified == 0) {
-            auth() -> logout();
+//            auth() -> logout();
             return redirect('error/emailVerifiedFailed');
         }
 

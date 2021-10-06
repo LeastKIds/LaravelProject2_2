@@ -26,9 +26,10 @@ Route::post('/logout', [AuthController::class, 'logout']);
 
 Route::prefix('/auth') -> group(function () {
     Route::delete('/leave', [AuthController::class, 'leave']);
-    Route::get('loginCheck', [AuthController::class, 'loginCheck']);
+    Route::get('/loginCheck', [AuthController::class, 'loginCheck']);
     Route::post('/updatePassword', [AuthController::class, 'updatePassword']);
     Route::get('/emailCheck/{userURL}', [AuthController::class, 'confirmEmail']);
+    Route::post('/reEmailCheck', [AuthController::class, 'reConfirmEmail']);
 });
 
 

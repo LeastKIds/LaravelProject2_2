@@ -19,6 +19,7 @@ class CreateEmailVerificationsTable extends Migration
             $table->foreignId('user_id')
                 ->constrained()
                 ->onDelete('cascade');
+            $table->string('event_name');
 
 
             $table->timestamps();

@@ -17,7 +17,8 @@ class AuthController extends Controller
     //
 
     public function __construct() {
-        $this -> middleware(['checkEmail']) -> except(['register','logout', 'confirmEmail']);
+        $this -> middleware(['checkEmail'])
+            -> except(['register','logout', 'confirmEmail','reConfirmEmail']);
     }
 
     public function register(Request $request) {
@@ -55,19 +56,21 @@ class AuthController extends Controller
             'password' => Hash::make($password),
         ]);
 
-        $random = Str::random(64);
-        EmailVerification::create([
-            'user_id' => $user->id,
-            'email_verifications' => $random,
-        ]);
-        $timestamp = strtotime("+10 minutes");
+        $this -> emailSession($user -> id);
 
-        $sql = "CREATE EVENT checkEmail ON SCHEDULE AT '"
-            .date("Y-m-d H:i:s", $timestamp)
-            ."' DO DELETE FROM email_verifications WHERE user_id = "
-            .$user -> id;
-
-        DB::statement($sql);
+//        $random = Str::random(64);
+//        EmailVerification::create([
+//            'user_id' => $user->id,
+//            'email_verifications' => $random,
+//        ]);
+//        $timestamp = strtotime("+10 minutes");
+//
+//        $sql = "CREATE EVENT checkEmail ON SCHEDULE AT '"
+//            .date("Y-m-d H:i:s", $timestamp)
+//            ."' DO DELETE FROM email_verifications WHERE user_id = "
+//            .$user -> id;
+//
+//        DB::statement($sql);
 
         return ['success' => 1, 'message' => 'register successful and check your email'];
 
@@ -106,9 +109,9 @@ class AuthController extends Controller
     public function loginCheck() {
         $user = auth() -> user();
         if($user !=null)
-            return ['login' => 1, 'user' => $user, 'message' => '로그인 중'];
+            return ['success' => 1, 'user' => $user, 'message' => '로그인 중'];
         else
-            return ['login' => 0, 'user' => null, 'message' => '로그아웃 중'];
+            return ['success' => 0, 'user' => null, 'message' => '로그아웃 중'];
     }
 
     public function updatePassword(Request $request) {
@@ -128,7 +131,47 @@ class AuthController extends Controller
         $checkEmail = EmailVerification::where('email_verifications', $userURL) -> exists();
         if($checkEmail == false)
             return ['success' => 0, 'message' => '인증 만료. 다시 이메일을 받아 주세요.'];
+        $checkEmail = EmailVerification::where('email_verifications', $userURL) -> get();
+        $user = User::find($checkEmail -> user_id);
+        $user -> email_verified = 1;
+        $user -> save();
+    }
+
+    public function reConfirmEmail() {
+//        dd(auth() -> user());
+        $id = auth() -> user() -> id;
+        if(EmailVerification::where('user_id', $id) -> exists())
+        {
+            $checkEmail = EmailVerification::where('user_id', $id) -> first();
+            $sql = "drop event ".$checkEmail -> event_name.";";
+//            dd($sql);
+            DB::statement($sql);
+            $checkEmail -> delete();
+
+        }
         
+        $this -> emailSession($id);
+
+        return ['success' => 1, 'message' => '이메일 인증 재발급 됨' ];
+    }
+
+    public function emailSession($id) {
+        $random = Str::random(64);
+        $event = Str::random(9);
+        $email = EmailVerification::create([
+            'user_id' => $id,
+            'email_verifications' => $random,
+            'event_name' => $event.$id,
+        ]);
+
+        $timestamp = strtotime("+10 minutes");
+
+        $sql = "CREATE EVENT ".$email -> event_name." ON SCHEDULE AT '"
+            .date("Y-m-d H:i:s", $timestamp)
+            ."' DO DELETE FROM email_verifications WHERE user_id = "
+            .$id;
+
+        DB::statement($sql);
     }
 
 }
