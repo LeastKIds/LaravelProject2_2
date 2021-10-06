@@ -2,16 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EmailVerification;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 
 
 class AuthController extends Controller
 {
     //
+
+    public function __construct() {
+        $this -> middleware(['checkEmail']) -> except(['register','logout', 'confirmEmail']);
+    }
 
     public function register(Request $request) {
         if(isset($request['name']))
@@ -48,22 +55,35 @@ class AuthController extends Controller
             'password' => Hash::make($password),
         ]);
 
+        $random = Str::random(64);
+        EmailVerification::create([
+            'user_id' => $user->id,
+            'email_verifications' => $random,
+        ]);
+        $timestamp = strtotime("+10 minutes");
+
+        $sql = "CREATE EVENT checkEmail ON SCHEDULE AT '"
+            .date("Y-m-d H:i:s", $timestamp)
+            ."' DO DELETE FROM email_verifications WHERE user_id = "
+            .$user -> id;
+
+        DB::statement($sql);
+
         return ['success' => 1, 'message' => 'register successful and check your email'];
 
 
     }
 
     public function login(Request $request) {
+
+
         if(!auth() -> attempt($request -> only('email','password'))) {
             return ['error' => '이메일 또는 비밀번호가 맞지 않습니다.', 'success' => 0, 'user' => null];
         }
 
         $request -> session() -> regenerate();
 
-        if(auth() -> user() -> email_verified == 0) {
-            auth() -> logout();
-            return ['success' => 2, 'message' => '이메일 인증이 안 됐습니다.'];
-        }
+
 
         return ['user' => auth()->user(), 'success' => 1, 'message' => '로그인 성공'];
 
@@ -102,6 +122,13 @@ class AuthController extends Controller
         auth() -> logout();
         return ['success' => 1, 'message' => '비밀번호 변경'];
 
+    }
+
+    public function confirmEmail($userURL) {
+        $checkEmail = EmailVerification::where('email_verifications', $userURL) -> exists();
+        if($checkEmail == false)
+            return ['success' => 0, 'message' => '인증 만료. 다시 이메일을 받아 주세요.'];
+        
     }
 
 }
